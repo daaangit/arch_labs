@@ -84,9 +84,9 @@ chmod +x "$MAIN_SCRIPT"
 
 echo "Starting tests..." 
 
-run_test "Low disk usage" 3 50 90
+run_test "Low disk usage" 10 50 90
 
-run_test "Medium disk usage" 6 80 60
+run_test "Medium disk usage" 7 80 65
 
 run_test "High disk usage" 10 70 40
 
