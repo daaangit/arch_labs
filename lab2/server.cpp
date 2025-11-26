@@ -11,10 +11,16 @@
 constexpr int PORT = 5555;
 constexpr int BACKLOG = 5;
 volatile std::sig_atomic_t server_stop = 0;
+int server_socket = -1;
 
 void server_signal_control(int)
 {
     server_stop = 1;
+     if (server_socket != -1)
+    {
+        ::close(server_socket);
+        server_socket = -1;
+    }
 }
 
 ssize_t send_data(int socket, const char* data, size_t len)
@@ -71,7 +77,7 @@ void client_procc(int cl_socket)
 
     while(1)
     {
-        if(!get_line(cl_socket, line));
+        if(!get_line(cl_socket, line))
         {
             std::cout << "client disconnected\n";
             break;
@@ -94,6 +100,8 @@ void client_procc(int cl_socket)
         else if(line == "QUIT")
         {
             send_line(cl_socket, "EXIT");
+            std::cout << "client disconnected\n";
+            break;
         }
         else
         {
@@ -106,7 +114,7 @@ void client_procc(int cl_socket)
 int main()
 {
     std::signal(SIGINT, server_signal_control);
-    int server_socket = ::socket(AF_INET, SOCK_STREAM, 0);
+    server_socket = ::socket(AF_INET, SOCK_STREAM, 0);
     if(server_socket < 0)
     {
         perror("socket");
@@ -144,13 +152,14 @@ int main()
         int client_socket = ::accept(server_socket, reinterpret_cast<sockaddr*>(&client_addr), &client_len);
         if(client_socket < 0)
         {
-            if(errno == EINTR && server_stop) break;
+            if(server_stop) break;
             perror("accept");
             continue;
         }
         std::cout << "Client connected\n";
         client_procc(client_socket);
     }
+    if (server_socket != -1)
     ::close(server_socket);
     std::cout << "Server stopped\n";
 }
