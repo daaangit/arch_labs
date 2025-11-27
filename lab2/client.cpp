@@ -28,6 +28,15 @@ bool send_line(int socket, const std::string& line)
     return send_data(socket, data.c_str(), data.size()) > 0;
 }
 
+void handleError(const std::string& operation, const std::string& message) 
+{
+    std::cerr << "ERROR [" << operation << "]: " << message;
+    if (errno != 0) {
+        std::cerr << " (system: " << strerror(errno) << ")";
+    }
+    std::cerr << std::endl;
+}
+
 bool get_line(int socket, std::string& out)
 {
     out.clear();
@@ -55,24 +64,15 @@ bool get_line(int socket, std::string& out)
     }
     return 1;
 }
-// --Ромео: добавление обработки ошибок--
-// Расширенная обработка ошибок
-void handleError(const std::string& operation, const std::string& message) {
-    std::cerr << "ERROR [" << operation << "]: " << message;
-    if (errno != 0) {
-        std::cerr << " (system: " << strerror(errno) << ")";
-    }
-    std::cerr << std::endl;
-}
 
-// Функция для безопасного закрытия сокета
 void safeClose(int& socket) {
     if (socket >= 0) {
         ::close(socket);
         socket = -1;
     }
 }
-// --конец добавления--
+
+
 int main()
 {
     int client_socket = ::socket(AF_INET, SOCK_STREAM, 0);
