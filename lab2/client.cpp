@@ -6,7 +6,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-
+#include "logger.h"
 constexpr int PORT = 5555;
 
 ssize_t send_data(int socket, const char* data, size_t len)
@@ -41,7 +41,7 @@ bool get_line(int socket, std::string& out)
         {
             if (errno == EINTR)
                 continue;
-            perror("recv");
+            handleError("recv", "Failed to receive data");
             return 0;
         }
         if (ch == '\n')
@@ -55,14 +55,31 @@ bool get_line(int socket, std::string& out)
     }
     return 1;
 }
+// --Ромео: добавление обработки ошибок--
+// Расширенная обработка ошибок
+void handleError(const std::string& operation, const std::string& message) {
+    std::cerr << "ERROR [" << operation << "]: " << message;
+    if (errno != 0) {
+        std::cerr << " (system: " << strerror(errno) << ")";
+    }
+    std::cerr << std::endl;
+}
 
+// Функция для безопасного закрытия сокета
+void safeClose(int& socket) {
+    if (socket >= 0) {
+        ::close(socket);
+        socket = -1;
+    }
+}
+// --конец добавления--
 int main()
 {
     int client_socket = ::socket(AF_INET, SOCK_STREAM, 0);
     if (client_socket < 0)
     {
-        perror("socket");
-        return 1;
+    handleError("socket_creation", "Failed to create socket");
+    return 1;
     }
 
     sockaddr_in server_addr{};
@@ -71,19 +88,21 @@ int main()
 
     if (::inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0)
     {
-        perror("inet_pton");
-        ::close(client_socket);
-        return 1;
+    handleError("inet_pton", "Invalid address format");
+    safeClose(client_socket);
+    return 1;
     }
 
     if (::connect(client_socket, reinterpret_cast<sockaddr*>(&server_addr), sizeof(server_addr)) < 0)
     {
-        perror("connect");
-        ::close(client_socket);
-        return 1;
+    handleError("connect", "Failed to connect to server");
+    safeClose(client_socket);
+    return 1;
     }
 
-    std::cout << "Connected to server on 127.0.0.1:" << PORT << "\n";
+    Logger logger;
+    logger.log("Connected to server on 127.0.0.1:" + std::to_string(PORT));
+    logger.log("Client started with available commands: ping, msg, history, quit");
     std::cout << "Commands:\n";
     std::cout << "  ping              - send PING\n";
     std::cout << "  msg <text>        - send message to history\n";
@@ -103,7 +122,7 @@ int main()
         {
             if (!send_line(client_socket, "PING"))
             {
-                std::cerr << "send error\n";
+                logger.error("Failed to send PING command");
                 break;
             }
             if (!get_line(client_socket, line))
@@ -115,7 +134,7 @@ int main()
             std::string msg = input.substr(4);
             if (!send_line(client_socket, "MSG " + msg))
             {
-                std::cerr << "send error\n";
+                logger.error("Failed to send MSG command: " + msg);
                 break;
             }
             if (!get_line(client_socket, line))
@@ -126,7 +145,7 @@ int main()
         {
             if (!send_line(client_socket, "HISTORY"))
             {
-                std::cerr << "send error\n";
+                logger.error("Failed to send HISTORY command");
                 break;
             }
 
@@ -143,7 +162,7 @@ int main()
         {
             if (!send_line(client_socket, "QUIT"))
             {
-                std::cerr << "send error\n";
+                logger.error("Failed to send QUIT command");
                 break;
             }
             if (get_line(client_socket, line))
@@ -161,7 +180,8 @@ int main()
     }
 
 end:
-    ::close(client_socket);
+    safeClose(client_socket);
+    logger.log("Client disconnected");
     std::cout << "Disconnected\n";
     return 0;
 }
