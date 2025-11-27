@@ -41,7 +41,7 @@ bool get_line(int socket, std::string& out)
         {
             if (errno == EINTR)
                 continue;
-            perror("recv");
+            handleError("recv", "Failed to receive data");
             return 0;
         }
         if (ch == '\n')
@@ -55,14 +55,31 @@ bool get_line(int socket, std::string& out)
     }
     return 1;
 }
+// --Ромао: добавление обработки ошибок--
+// Расширенная обработка ошибок
+void handleError(const std::string& operation, const std::string& message) {
+    std::cerr << "ERROR [" << operation << "]: " << message;
+    if (errno != 0) {
+        std::cerr << " (system: " << strerror(errno) << ")";
+    }
+    std::cerr << std::endl;
+}
 
+// Функция для безопасного закрытия сокета
+void safeClose(int& socket) {
+    if (socket >= 0) {
+        ::close(socket);
+        socket = -1;
+    }
+}
+// --конец добавления--
 int main()
 {
     int client_socket = ::socket(AF_INET, SOCK_STREAM, 0);
     if (client_socket < 0)
     {
-        perror("socket");
-        return 1;
+    handleError("socket_creation", "Failed to create socket");
+    return 1;
     }
 
     sockaddr_in server_addr{};
@@ -71,16 +88,16 @@ int main()
 
     if (::inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0)
     {
-        perror("inet_pton");
-        ::close(client_socket);
-        return 1;
+    handleError("inet_pton", "Invalid address format");
+    safeClose(client_socket);
+    return 1;
     }
 
     if (::connect(client_socket, reinterpret_cast<sockaddr*>(&server_addr), sizeof(server_addr)) < 0)
     {
-        perror("connect");
-        ::close(client_socket);
-        return 1;
+    handleError("connect", "Failed to connect to server");
+    safeClose(client_socket);
+    return 1;
     }
 
     std::cout << "Connected to server on 127.0.0.1:" << PORT << "\n";
