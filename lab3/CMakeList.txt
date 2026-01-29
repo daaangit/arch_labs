@@ -1,0 +1,16 @@
+cmake_minimum_required(VERSION 4.2.3)
+project(Lab3)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+find_package(Threads REQUIRED)
+set(SOURCES main.cpp)
+add_executable(Lab3 ${SOURCES})
+
+add_custom_command(TARGET Lab3 POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/files)
+add_custom_command(TARGET Lab3 POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_SOURCE_DIR}/files
+            ${CMAKE_BINARY_DIR}/files )
